@@ -22,6 +22,7 @@ All notable changes to Anatomy are recorded here. The format follows [Keep a Cha
 - Await asynchronous `until` conditions without treating the promise itself as success, while enforcing the wait deadline.
 - Capture measures the current figure before every screenshot, including moved, resized and timed zoom crops.
 - `publish.mjs --submit` makes the fork again with gh 2.101 and later, which refuse `--remote` when a repository is named; gh never adds a remote in that case, so the flag is gone (#53).
+- Ripple Tank's water and paper shaders read their ink colour from the same fixed per-theme uniform as every other tuned constant in the figure, instead of carrying its own hardcoded `pale ? light : dark` pair inline in GLSL.
 
 ## [1.1.0] - 2026-10-12
 
