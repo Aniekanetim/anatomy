@@ -109,6 +109,14 @@ async function main() {
   if (!Array.isArray(actions)) throw new Error("actions must be an array");
   for (const action of actions) {
     if (!Array.isArray(action) || !kinds.has(action[0])) throw new Error(`unknown action ${Array.isArray(action) ? action[0] : action}`);
+    if (action[0] === "orbit") {
+      const [, , from, to, step] = action;
+      if (![from, to, step].every(Number.isFinite) || step === 0 || (step > 0 ? from > to : from < to)) throw new Error(`orbit needs numeric from, to and a nonzero step that moves from ${from} toward ${to}, got step ${step}`);
+    }
+    if (action[0] === "sheet") {
+      const [, , every, count] = action;
+      if (!Number.isFinite(every) || every < 0 || !Number.isInteger(count) || count < 1) throw new Error(`sheet needs a non-negative every and a whole count of at least 1, got every ${every} and count ${count}`);
+    }
   }
   const url = /^https?:|^file:/.test(target) ? target : pathToFileURL(resolve(target)).href;
   const binary = chromePath();
