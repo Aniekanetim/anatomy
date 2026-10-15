@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
@@ -77,4 +77,19 @@ test("--submit: people who can push get a branch; everyone else a fork made for 
   assert.deepEqual(guest.steps[0].gh, ["repo", "fork", "wheresryan22/anatomy-community", "--clone=false"]);
   assert.equal(guest.steps.at(-1).pr.head, "Octo-Cat:figure/token-bucket");
   assert.ok(guest.steps.some((s) => s.git?.[0] === "add" && s.git.at(-1) === "figures/octo-cat/token-bucket"), "only the figure's folder is added");
+});
+
+test("a failed --force publish leaves the existing figure as it was", () => {
+  const repo = gallery();
+  const common = { source: join(SKILL, "examples", "dial-indicator"), into: repo, id: "dial-indicator", title: "Dial indicator", prompt: "/anatomy a dial indicator", author: "octo-cat", agent: "Codex", license: "MIT", build: "build.mjs", tags: [], date: "2026-10-12", noPreview: true };
+  try {
+    const { dest } = publish(common);
+    const before = readFileSync(join(dest, "figure.json"), "utf8");
+    assert.throws(() => publish({ ...common, force: true, pages: ["missing.html"] }), /page missing\.html not found/);
+    assert.equal(readFileSync(join(dest, "figure.json"), "utf8"), before);
+    assert.ok(existsSync(join(dest, "src", "build.mjs")));
+    assert.deepEqual(readdirSync(join(repo, "figures", "octo-cat")), ["dial-indicator"]);
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
 });
