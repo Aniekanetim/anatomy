@@ -65,6 +65,30 @@ test("publishing refuses a folder that is not a gallery clone", () => {
   }
 });
 
+test("publisher accepts only the gallery's supported licenses", () => {
+  const repo = gallery();
+  const command = (license, id) => spawnSync(process.execPath, [
+    join(SKILL, "scripts", "publish.mjs"), join(SKILL, "examples", "dial-indicator"),
+    "--into", repo, "--id", id, "--title", "Dial indicator", "--prompt", "/anatomy a dial indicator",
+    "--author", "Octo-Cat", "--license", license, "--no-preview",
+  ], { encoding: "utf8" });
+  try {
+    for (const license of ["MIT", "CC-BY-4.0"]) {
+      const id = license.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+      const result = command(license, id);
+      assert.equal(result.status, 0, result.stderr);
+      const figure = JSON.parse(readFileSync(join(repo, "figures", "octo-cat", id, "figure.json"), "utf8"));
+      assert.equal(figure.license, license);
+    }
+    const invalid = command("GPL-3.0", "unsupported-license");
+    assert.equal(invalid.status, 1);
+    assert.match(invalid.stderr, /--license must be one of: MIT, CC-BY-4\.0/);
+    assert.ok(!existsSync(join(repo, "figures", "octo-cat", "unsupported-license")));
+  } finally {
+    rmSync(repo, { recursive: true, force: true });
+  }
+});
+
 import { submitPlan } from "./publish.mjs";
 
 test("--submit: people who can push get a branch; everyone else a fork made for them", () => {

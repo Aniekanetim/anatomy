@@ -10,6 +10,7 @@ const SOURCE_TYPES = [".mjs", ".js", ".css", ".html", ".json", ".md", ".txt", ".
 const SKIP_DIRS = ["node_modules", "shots", ".git"];
 const ID = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const AGENTS = ["Claude Code", "OpenCode", "Codex", "Antigravity", "Other"];
+const LICENSES = ["MIT", "CC-BY-4.0"];
 const KINDS = ["SVG", "SVG + WebGL", "SVG + 3D", "SVG + WebGL + 3D"];
 
 const posix = (path) => path.split(sep).join("/");
@@ -71,6 +72,7 @@ function parse(argv) {
   for (const key of ["source", "into", "id", "title", "prompt", "author"]) if (!options[key]) usage(`missing ${key === "source" ? "the figure folder" : `--${key}`}`);
   if (!ID.test(options.id)) usage("--id must be kebab-case, like token-bucket-bench");
   if (!AGENTS.includes(options.agent)) usage(`--agent must be one of: ${AGENTS.join(", ")}`);
+  if (!LICENSES.includes(options.license)) usage(`--license must be one of: ${LICENSES.join(", ")}`);
   if (options.kind && !KINDS.includes(options.kind)) usage(`--kind must be one of: ${KINDS.join(", ")}`);
   return options;
 }
