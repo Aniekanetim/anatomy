@@ -132,8 +132,10 @@ async function main() {
     let id = 0;
     const pending = new Map();
     const problems = [];
+    let loaded = () => {};
     socket.onmessage = (message) => {
       const data = JSON.parse(message.data);
+      if (data.method === "Page.loadEventFired") loaded();
       if (data.id && pending.has(data.id)) {
         pending.get(data.id)(data);
         pending.delete(data.id);
@@ -145,14 +147,21 @@ async function main() {
       }
     };
     await new Promise((done) => (socket.onopen = done));
-    const send = (method, params = {}) =>
-      new Promise((done) => {
+    const send = (method, params = {}, patience = 60000) =>
+      new Promise((done, fail) => {
         const call = ++id;
-        pending.set(call, done);
+        const timer = setTimeout(() => {
+          pending.delete(call);
+          fail(new Error(`Chrome did not answer ${method} within ${Math.round(patience / 1000)} s`));
+        }, patience);
+        pending.set(call, (data) => {
+          clearTimeout(timer);
+          done(data);
+        });
         socket.send(JSON.stringify({ id: call, method, params }));
       });
-    const evaluate = async (expression) => {
-      const reply = await send("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true });
+    const evaluate = async (expression, patience) => {
+      const reply = await send("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true }, patience);
       if (reply.error) throw new Error(reply.error.message);
       const exception = reply.result?.exceptionDetails;
       if (exception) throw new Error(exception.exception?.description ?? exception.text);
@@ -170,9 +179,14 @@ async function main() {
     const early = [SLOW, options.noWebgl ? NO_GL : "", options.preload ?? ""].filter(Boolean).join("\n");
     await send("Page.addScriptToEvaluateOnNewDocument", { source: early });
     await send("Emulation.setDeviceMetricsOverride", { width: options.width, height: options.height, deviceScaleFactor: options.scale, mobile: options.width < 600 });
+    const load = new Promise((done) => {
+      loaded = done;
+      setTimeout(done, 10000);
+    });
     const navigation = await send("Page.navigate", { url });
     if (navigation.error) throw new Error(`Navigation failed: ${navigation.error.message}`);
     if (navigation.result?.errorText) throw new Error(`Navigation failed: ${navigation.result.errorText}`);
+    await load;
     await sleep(1200);
     const targetOf = (selector, fallback = ".iso-plate") => `(()=>{const select=${JSON.stringify(selector ?? null)};const el=document.querySelector(select??${JSON.stringify(fallback)});if(select!==null&&!el)throw new Error("Drive target not found: "+select);return el})()`;
     const boxOf = (selector) => evaluate(`(()=>{const el=${targetOf(selector)}||document.body;const r=el.getBoundingClientRect();return {x:r.left,y:r.top,w:r.width,h:r.height,sx:scrollX,sy:scrollY}})()`);
@@ -236,7 +250,7 @@ async function main() {
         const limit = Date.now() + (args[1] ?? 10000);
         let ok = false;
         while (Date.now() < limit) {
-          ok = await evaluate(`Promise.race([Promise.resolve(${args[0]}).then(Boolean), new Promise((done) => setTimeout(() => done(false), ${Math.max(0, limit - Date.now())}))])`);
+          ok = await evaluate(`Promise.race([Promise.resolve(${args[0]}).then(Boolean), new Promise((done) => setTimeout(() => done(false), ${Math.max(0, limit - Date.now())}))])`, Math.max(0, limit - Date.now()) + 60000);
           if (ok) break;
           await sleep(25);
         }
